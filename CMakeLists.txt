@@ -9,6 +9,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(policies NO_POLICY_SCOPE)
 
+option(DISABLE_BUILDING_TESTS "Disable building unit tests." ON)
+option(DISABLE_BUILDING_EXAMPLES "Disable build the examples." ON)
 option(CODE_COVERAGE "Instrument for code coverage (clang only!)" OFF)
 option(ADDRESS_SANITIZER "Use memory error detector  (clang only and implies debug mode!)" OFF)
 option(THREAD_SANITIZER "Use thread data race detector  (clang only and implies debug mode!)" OFF)
@@ -83,28 +85,32 @@ if (STATIC_ANALYZER)
   endif()
 endif()
 
-# Names
-set(testName tests)
+if (NOT DISABLE_BUILDING_TESTS)
+    # Names
+    set(testName tests)
 
-include(CTest)
-enable_testing()
-add_subdirectory(tests)
+    include(CTest)
+    enable_testing()
+    add_subdirectory(tests)
 
-add_subdirectory(examples)
+    if(NOT DISABLE_BUILDING_EXAMPLES)
+        add_subdirectory(examples)
+    endif()
+    # Requires llvm/clang v4+!
+    # Setup: cmake -G <GENERATOR> -DCODE_COVERAGE=ON ../../
+    if (CODE_COVERAGE)
+    add_custom_target(
+        codecov
 
-# Requires llvm/clang v4+!
-# Setup: cmake -G <GENERATOR> -DCODE_COVERAGE=ON ../../
-if (CODE_COVERAGE)
-  add_custom_target(
-    codecov
+        rm -fr report.dir \; LLVM_PROFILE_FILE=tests.profraw $<TARGET_FILE:${testName}> >/dev/null && llvm-profdata merge -sparse tests.profraw -o tests.profdata && llvm-cov show $<TARGET_FILE:${testName}> -instr-profile=tests.profdata -format html -o report.dir -Xdemangler c++filt -Xdemangler -n -show-line-counts-or-regions && llvm-cov report $<TARGET_FILE:${testName}> -instr-profile=tests.profdata -Xdemangler c++filt -Xdemangler -n -use-color && echo '============================\\nReport at: report.dir/index.html\\n============================'
 
-    rm -fr report.dir \; LLVM_PROFILE_FILE=tests.profraw $<TARGET_FILE:${testName}> >/dev/null && llvm-profdata merge -sparse tests.profraw -o tests.profdata && llvm-cov show $<TARGET_FILE:${testName}> -instr-profile=tests.profdata -format html -o report.dir -Xdemangler c++filt -Xdemangler -n -show-line-counts-or-regions && llvm-cov report $<TARGET_FILE:${testName}> -instr-profile=tests.profdata -Xdemangler c++filt -Xdemangler -n -use-color && echo '============================\\nReport at: report.dir/index.html\\n============================'
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Generating test code coverage report"
+        DEPENDS ${testName}
+        USES_TERMINAL
+        )
+    endif()
 
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Generating test code coverage report"
-    DEPENDS ${testName}
-    USES_TERMINAL
-    )
 endif()
 
 # Setup: scan-build cmake -G <GENERATOR> -DSTATIC_ANALYZER=ON ../../
