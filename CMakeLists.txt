@@ -17,8 +17,7 @@ add_library(netromdk::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
         INTERFACE
-        $<$<CXX_STANDARD:20>:sigs.h>
-        $<$<CXX_STANDARD:17>:sigs17.h>
+        sigs.h
 )
 
 target_include_directories( ${PROJECT_NAME}
